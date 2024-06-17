@@ -28,7 +28,7 @@ func (BindingData) TableName() string {
 	if global.CONF.ShotCode.DataTable.BindingData != "" {
 		return global.CONF.ShotCode.DataTable.BindingData
 	}
-	return "phoenix_binding_data"
+	return "short_code_binding_data"
 }
 
 type BindingDataMapper struct {
