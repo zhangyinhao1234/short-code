@@ -1,0 +1,40 @@
+server:
+  port: 8080
+  name: short-code
+  ginMode: release
+  pprof: true
+
+
+log:
+  fileDir: /Users/zhangyinhao/work/softDev/github/short-code/logs/log
+  level: info
+  linkName: logs/latest.log
+
+redis:
+  addrs:
+    - 100.246.111.247:6379
+    - 100.246.111.248:6379
+    - 100.246.111.250:6379
+    - 100.246.111.251:6379
+    - 100.246.111.249:6379
+    - 100.246.111.246:6379
+  password: 123456%U
+  poolSize: 32
+  minIdleConns: 32
+
+
+shotCode:
+  cacheSize: 20000 #每次缓存到本地的未使用的短码数量
+  safetyStock: 10000 #未使用短码的安全库存,本地缓存低于这个数量会去数据库加载
+  bindDataLocalCacheSize: 5000000
+  totalSize: 100000000 #系统总短码数量，和数据库中数量一致
+  batchFlushSize: 200 #短码绑定数据批量刷写到ClickHouse的数量
+  dbQueryLimit: 2500 #通过短码查询数据库的限流保护 N/s 自行压测调试一个合适的值
+  dataTable: # 数据存储的表名配置，会有默认值
+    BindingData:
+    UnUseCode:
+    CurrentSerialNumber:
+
+
+clickHouse:
+  dsn: clickhouse://userName:pwd@100.246.120.151:9000,100.246.120.152:9000,100.246.120.153:9000,100.246.120.154:9000/short_code?dial_timeout=10s&read_timeout=20s
