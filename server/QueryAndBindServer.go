@@ -2,6 +2,7 @@ package server
 
 import (
 	"short-code/api"
+	"short-code/initialize"
 )
 
 type QueryAndBindServer struct {
@@ -10,6 +11,8 @@ type QueryAndBindServer struct {
 
 func (e *QueryAndBindServer) StartUp() {
 	e.Init()
+	initialize.Tasks()
+	initialize.LoadCacheInLocal()
 	api.BindRequest(e.router)
 	e.Run()
 }

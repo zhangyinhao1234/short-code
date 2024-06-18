@@ -109,6 +109,7 @@ func (e *BindingService) LoadBindCacheInLocal() {
 			bindingDataMapper.cacheInLocal(&d.ShotCode, &d.Message)
 			lastCreateTime = d.CreateTime
 		}
+		//global.LOG.Info("加载数量,加载下一个时间", inSize, lastCreateTime)
 		inSize = inSize + int64(200000)
 	}
 }

@@ -44,6 +44,7 @@ func (e *BindingDataMapper) cacheAndSave(shotCode *string, data *string) error {
 	return nil
 }
 
+// 500TPS基本满足需求，chan遇到宕机可能会丢失更多的数据
 func (e *BindingDataMapper) lazySaveInCK(shotCode string, data string) error {
 	defer lazySaveMut.Unlock()
 	lazySaveMut.Lock()
@@ -59,7 +60,7 @@ func (e *BindingDataMapper) flushInLock() {
 	defer lazySaveMut.Unlock()
 	lazySaveMut.Lock()
 	//因故障导致存储的数据量不会很大，分布式环境中多存储了几份问题不大
-	stagingData := []BindingData{}
+	var stagingData []BindingData
 	for _, v := range *e.listStagingFromRedis() {
 		unSaveBindingData = append(unSaveBindingData, v)
 		stagingData = append(stagingData, v)

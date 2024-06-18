@@ -37,10 +37,8 @@ func (e *DefaultServer) Init() {
 	initialize.LocalCache()
 	initialize.GRomClickHouse()
 	initialize.Limiter()
-	initialize.Tasks()
-	//initialize.LoadCacheInLocal()
-	//initialize end
 
+	//initialize end
 	gin.SetMode(global.CONF.Server.GinMode)
 	gin.DefaultWriter = io.Discard
 	router := gin.Default()
