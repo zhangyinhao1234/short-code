@@ -128,6 +128,27 @@ func (e *BindingDataMapper) getByCode(shotCode *string) (string, error) {
 	return queryList[0].Message, nil
 }
 
+func (e *BindingDataMapper) getLast() (*BindingData, error) {
+	var queryList []BindingData
+	result := global.DB.Limit(1).Where(" 1 = 1 ").Order("create_time desc ").Find(&queryList)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	if len(queryList) == 0 {
+		return nil, nil
+	}
+	return &queryList[0], nil
+}
+
+func (e *BindingDataMapper) listLtCreateTime(createTime int64, limit int) (*[]BindingData, error) {
+	var queryList []BindingData
+	result := global.DB.Limit(limit).Where(" create_time < ?", createTime).Order("create_time desc ").Find(&queryList)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return &queryList, nil
+}
+
 func (e *BindingDataMapper) cacheInLocal(shotCode *string, data *string) {
 _:
 	global.LocalCache.SetWithExpire(*shotCode, data, localCacheExTime)

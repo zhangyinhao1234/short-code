@@ -29,3 +29,9 @@ func (e *BindDataService) Bind(data *string) (*string, *do.ShortCodeError) {
 func (e *BindDataService) Flush() {
 	bindingService.Flush()
 }
+
+func (e *BindDataService) LoadBindCacheInLocal() {
+	go func() {
+		bindingService.LoadBindCacheInLocal()
+	}()
+}

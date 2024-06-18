@@ -38,6 +38,7 @@ func (e *DefaultServer) Init() {
 	initialize.GRomClickHouse()
 	initialize.Limiter()
 	initialize.Tasks()
+	//initialize.LoadCacheInLocal()
 	//initialize end
 
 	gin.SetMode(global.CONF.Server.GinMode)

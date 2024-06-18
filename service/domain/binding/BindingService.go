@@ -80,3 +80,35 @@ func (e *BindingService) GetByShotCode(shotCode *string) (*string, *do.ShortCode
 	bindingDataMapper.cacheInLocal(shotCode, &data)
 	return &data, nil
 }
+
+func (e *BindingService) LoadBindCacheInLocal() {
+	if global.CONF.ShotCode.StartUpLoadBindDataLocalCacheSize <= 0 {
+		return
+	}
+	bdata, err := bindingDataMapper.getLast()
+	if err != nil {
+		global.LOG.Error("获取最后绑定数据异常", err)
+		return
+	}
+	if bdata == nil {
+		return
+	}
+	lastCreateTime := bdata.CreateTime
+	limit := 200000
+	inSize := int64(0)
+	for inSize < global.CONF.ShotCode.StartUpLoadBindDataLocalCacheSize {
+		datas, err := bindingDataMapper.listLtCreateTime(lastCreateTime, limit)
+		if err != nil {
+			global.LOG.Error("加载绑定数据到本地内存读取数据异常", err)
+			return
+		}
+		if len(*datas) == 0 {
+			return
+		}
+		for _, d := range *datas {
+			bindingDataMapper.cacheInLocal(&d.ShotCode, &d.Message)
+			lastCreateTime = d.CreateTime
+		}
+		inSize = inSize + int64(200000)
+	}
+}
