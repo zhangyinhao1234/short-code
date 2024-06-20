@@ -26,16 +26,13 @@ var (
 )
 
 type BindingData struct {
-	ShotCode   string `gorm:"column:shot_code"`
+	Code       string `gorm:"column:code"`
 	Message    string `gorm:"column:message"`
 	CreateTime int64  `gorm:"column:create_time"`
 }
 
 func (BindingData) TableName() string {
-	if global.CONF.ShotCode.DataTable.BindingData != "" {
-		return global.CONF.ShotCode.DataTable.BindingData
-	}
-	return "short_code_binding_data"
+	return "sc_binding_data"
 }
 
 type BindingDataMapper struct {
@@ -55,7 +52,7 @@ func (e *BindingDataMapper) lazySaveInCK(shotCode string, data string) error {
 	if ckFault {
 		return errors.New("ClickHouse上次被标记为故障")
 	}
-	bindingData := BindingData{ShotCode: shotCode, Message: data, CreateTime: time.Now().UnixMilli()}
+	bindingData := BindingData{Code: shotCode, Message: data, CreateTime: time.Now().UnixMilli()}
 	ascii := int([]rune(shotCode[0:5])[0])
 	lazySaveCh := lazySaveChPool[ascii%lazySaveChPoolSize]
 	lazySaveWG.Add(1)
@@ -81,7 +78,7 @@ func (e *BindingDataMapper) lazySaveChConsumer(lazySaveCh chan BindingData) {
 	go func() {
 		var datas []BindingData
 		for v := range lazySaveCh {
-			if "#FlushCKNow#" == v.ShotCode {
+			if "#FlushCKNow#" == v.Code {
 				//global.LOG.Info("接受数据持久化到CK指令")
 				//因故障导致存储的数据量不会很大，分布式环境中多存储了几份问题不大
 				var stagingData []BindingData
@@ -99,7 +96,7 @@ func (e *BindingDataMapper) lazySaveChConsumer(lazySaveCh chan BindingData) {
 			}
 
 			lazySaveWG.Done()
-			if len(datas) >= global.CONF.ShotCode.BatchFlushSize {
+			if len(datas) >= global.CONF.ShortCode.BatchFlushSize {
 				global.LOG.Info("数据持久化到CK size = ", len(datas))
 				var replica []BindingData
 				for _, v := range datas {
@@ -123,7 +120,7 @@ func (e *BindingDataMapper) lazySaveChConsumer(lazySaveCh chan BindingData) {
 func (e *BindingDataMapper) flushCK() {
 	lazySaveWG.Add(lazySaveChPoolSize)
 	for _, ch := range lazySaveChPool {
-		bindingData := BindingData{ShotCode: "#FlushCKNow#"}
+		bindingData := BindingData{Code: "#FlushCKNow#"}
 		ch <- bindingData
 	}
 }
@@ -136,7 +133,7 @@ func (e *BindingDataMapper) stagingInRedis(datas []BindingData) {
 	var ctx = context.Background()
 	nm := map[string]string{}
 	for _, v := range datas {
-		nm[v.ShotCode] = v.Message
+		nm[v.Code] = v.Message
 	}
 	global.RedisClient.HSet(ctx, SaveCKErrorCodeKey, nm)
 }
@@ -146,7 +143,7 @@ func (e *BindingDataMapper) listStagingFromRedis() *[]BindingData {
 	m, _ := global.RedisClient.HGetAll(ctx, SaveCKErrorCodeKey).Result()
 	var datas []BindingData
 	for k, v := range m {
-		bindingData := BindingData{ShotCode: k, Message: v, CreateTime: time.Now().UnixMilli()}
+		bindingData := BindingData{Code: k, Message: v, CreateTime: time.Now().UnixMilli()}
 		datas = append(datas, bindingData)
 	}
 	//global.LOG.Info("Redis 暂存的数据 size = ", len(datas))
@@ -156,7 +153,7 @@ func (e *BindingDataMapper) listStagingFromRedis() *[]BindingData {
 func (e *BindingDataMapper) delStagingInRedis(datas *[]BindingData) {
 	var ctx = context.Background()
 	for _, v := range *datas {
-		global.RedisClient.HDel(ctx, SaveCKErrorCodeKey, v.ShotCode)
+		global.RedisClient.HDel(ctx, SaveCKErrorCodeKey, v.Code)
 	}
 }
 

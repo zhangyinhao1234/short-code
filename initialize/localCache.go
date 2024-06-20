@@ -6,5 +6,5 @@ import (
 )
 
 func LocalCache() {
-	global.LocalCache = gcache.New(global.CONF.ShotCode.BindDataLocalCacheSize).LRU().Build()
+	global.LocalCache = gcache.New(global.CONF.ShortCode.BindDataLocalCacheSize).LRU().Build()
 }

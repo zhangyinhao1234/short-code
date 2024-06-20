@@ -6,5 +6,5 @@ import (
 )
 
 func Limiter() {
-	global.DBQueryLimiter = rate.NewLimiter(rate.Limit(global.CONF.ShotCode.DbQueryLimit), 8)
+	global.DBQueryLimiter = rate.NewLimiter(rate.Limit(global.CONF.ShortCode.DbQueryLimit), 8)
 }

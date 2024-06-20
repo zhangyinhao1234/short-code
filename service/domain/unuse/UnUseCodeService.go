@@ -32,7 +32,7 @@ type UnUseCodeService struct {
 }
 
 func (e *UnUseCodeService) Poll() (*string, *do.ShortCodeError) {
-	if atomic.LoadInt64(&size) < global.CONF.ShotCode.SafetyStock && atomic.CompareAndSwapInt64(&loadingCodeMark, 0, 1) {
+	if atomic.LoadInt64(&size) < global.CONF.ShortCode.SafetyStock && atomic.CompareAndSwapInt64(&loadingCodeMark, 0, 1) {
 		go func() {
 			e.Load()
 			atomic.StoreInt64(&loadingCodeMark, 0)
@@ -44,7 +44,7 @@ func (e *UnUseCodeService) Poll() (*string, *do.ShortCodeError) {
 }
 
 func (e *UnUseCodeService) Load() error {
-	if atomic.LoadInt64(&size) > global.CONF.ShotCode.SafetyStock {
+	if atomic.LoadInt64(&size) > global.CONF.ShortCode.SafetyStock {
 		return nil
 	}
 	//global.LOG.Debug("准备加载数据，当前剩余短码 = ", e.size)
@@ -57,7 +57,7 @@ func (e *UnUseCodeService) Load() error {
 		return err
 	}
 	for _, code := range *codes {
-		c := e.parseNumber2Str(code.ShotCode)
+		c := e.parseNumber2Str(code.Code)
 		codeCh <- *c
 	}
 	atomic.AddInt64(&size, int64(len(*codes)))
@@ -70,8 +70,8 @@ func (e *UnUseCodeService) getSerialNumber() (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	nextNumber := currentNum + global.CONF.ShotCode.CacheSize
-	if nextNumber > global.CONF.ShotCode.TotalSize {
+	nextNumber := currentNum + global.CONF.ShortCode.CacheSize
+	if nextNumber > global.CONF.ShortCode.TotalSize {
 		nextNumber = 0
 	}
 	t1 := time.Now().UnixMilli()
@@ -84,14 +84,14 @@ func (e *UnUseCodeService) getSerialNumber() (int64, error) {
 			return 0, err
 		}
 		if success {
-			if nextNumber > global.CONF.ShotCode.TotalSize {
+			if nextNumber > global.CONF.ShortCode.TotalSize {
 				return 0, errors.New("短码耗尽,请联系管理员！")
 			}
 			global.RedisClient.Set(ctx, CurrentSerialNumberCacheKey, nextNumber, exTime)
 			go currentSerialNumberMapper.saveCurrentSerialNumberInDB(nextNumber)
 			return nextNumber, nil
 		}
-		nextNumber = nextNumber + global.CONF.ShotCode.CacheSize
+		nextNumber = nextNumber + global.CONF.ShortCode.CacheSize
 	}
 }
 

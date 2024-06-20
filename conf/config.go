@@ -4,6 +4,6 @@ type AppConf struct {
 	Server     Server     `yaml:"server"`
 	Redis      Redis      `yaml:"redis"`
 	Logger     Logger     `yaml:"log"`
-	ShotCode   ShotCode   `yaml:"shotCode"`
+	ShortCode  ShortCode  `yaml:"shortCode"`
 	ClickHouse ClickHouse `yaml:"clickHouse"`
 }

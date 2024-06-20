@@ -36,7 +36,7 @@ func TestGetV2(t *testing.T) {
 	wg.Add(runSize)
 	for i := 0; i < runSize; i++ {
 		go func(codes []binding.BindingData) {
-			_, err := getDataService.GetByShotCode(&codes[i].ShotCode)
+			_, err := getDataService.GetByShotCode(&codes[i].Code)
 			if err != nil {
 				t.Log(err.GetMsg())
 			}
@@ -50,7 +50,7 @@ func TestGetV2(t *testing.T) {
 	wg.Add(runSize)
 	for i := 0; i < runSize; i++ {
 		go func(codes []binding.BindingData) {
-			_, err := getDataService.GetByShotCode(&codes[i].ShotCode)
+			_, err := getDataService.GetByShotCode(&codes[i].Code)
 			if err != nil {
 				t.Log(err.GetMsg())
 			}

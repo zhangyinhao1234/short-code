@@ -23,7 +23,7 @@ redis:
   minIdleConns: 64
 
 
-shotCode:
+shortCode:
   cacheSize: 20000 #每次缓存到本地的未使用的短码数量
   safetyStock: 14000 #未使用短码的安全库存,本地缓存低于这个数量会去数据库加载
   bindDataLocalCacheSize: 5000000 #本地绑定数据最大数量
@@ -31,10 +31,6 @@ shotCode:
   totalSize: 100000000 #系统总短码数量，和数据库中数量一致
   batchFlushSize: 1000 #短码绑定数据批量刷写到ClickHouse的数量
   dbQueryLimit: 2500 #通过短码查询数据库的限流保护 N/s 自行压测调试一个合适的值
-  dataTable: # 数据存储的表名配置，会有默认值
-    BindingData:
-    UnUseCode:
-    CurrentSerialNumber:
 
 
 clickHouse:

@@ -94,7 +94,7 @@ func (e *BindingService) GetByShotCode(shotCode *string) (*string, *do.ShortCode
 }
 
 func (e *BindingService) LoadBindCacheInLocal() {
-	if global.CONF.ShotCode.StartUpLoadBindDataLocalCacheSize <= 0 {
+	if global.CONF.ShortCode.StartUpLoadBindDataLocalCacheSize <= 0 {
 		return
 	}
 	bdata, err := bindingDataMapper.getLast()
@@ -108,7 +108,7 @@ func (e *BindingService) LoadBindCacheInLocal() {
 	lastCreateTime := bdata.CreateTime
 	limit := 200000
 	inSize := int64(0)
-	for inSize < global.CONF.ShotCode.StartUpLoadBindDataLocalCacheSize {
+	for inSize < global.CONF.ShortCode.StartUpLoadBindDataLocalCacheSize {
 		datas, err := bindingDataMapper.listLtCreateTime(lastCreateTime, limit)
 		if err != nil {
 			global.LOG.Error("加载绑定数据到本地内存读取数据异常", err)
@@ -118,7 +118,7 @@ func (e *BindingService) LoadBindCacheInLocal() {
 			return
 		}
 		for _, d := range *datas {
-			bindingDataMapper.cacheInLocal(&d.ShotCode, &d.Message)
+			bindingDataMapper.cacheInLocal(&d.Code, &d.Message)
 			lastCreateTime = d.CreateTime
 		}
 		//global.LOG.Info("加载数量,加载下一个时间", inSize, lastCreateTime)

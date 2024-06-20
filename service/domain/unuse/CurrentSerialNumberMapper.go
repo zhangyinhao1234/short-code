@@ -12,10 +12,7 @@ type CurrentSerialNumber struct {
 }
 
 func (CurrentSerialNumber) TableName() string {
-	if global.CONF.ShotCode.DataTable.CurrentSerialNumber != "" {
-		return global.CONF.ShotCode.DataTable.CurrentSerialNumber
-	}
-	return "short_code_rep_current_serial_number"
+	return "sc_current_serial_number"
 }
 
 type CurrentSerialNumberMapper struct {

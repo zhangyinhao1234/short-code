@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"log"
 	"math/rand"
 	"os"
 	"strconv"
@@ -30,7 +31,7 @@ func main() {
 func rmAllFile() {
 	for i := 0; i < fileCount; i++ {
 		if err := os.Remove(getFileName(i)); err != nil {
-			panic(err)
+			log.Println("未找到文件")
 		}
 	}
 }
@@ -94,7 +95,7 @@ func writeSerialNumber() {
 			serialNumber++
 		}
 		file, _ := os.OpenFile(csvFileName(i), os.O_WRONLY|os.O_CREATE, 0666)
-		file.WriteString("shot_code,serial_number" + "\n")
+		file.WriteString("code,serial_number" + "\n")
 		file.WriteString(buf.String())
 		file.Close()
 	}
