@@ -71,7 +71,6 @@ func (e *BindingService) GetByShotCode(shotCode *string) (*string, *do.ShortCode
 		}
 		go func() {
 			bindingDataMapper.cacheInLocal(shotCode, &data)
-		_:
 			bindingDataMapper.cacheInRedis(shotCode, &data)
 		}()
 	} else if err != nil {

@@ -50,6 +50,9 @@ func (e *DefaultServer) Init() {
 }
 
 func (e *DefaultServer) pprofStart() {
+	if !global.CONF.Server.Pprof {
+		return
+	}
 	e.router.GET("/debug/pprof/*any", gin.WrapH(http.DefaultServeMux))
 	go func() {
 		if err := http.ListenAndServe(":8081", nil); err != nil {

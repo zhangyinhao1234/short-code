@@ -13,8 +13,6 @@ import (
 )
 
 var (
-	unSaveBindingData  []BindingData
-	lazySaveMut        = sync.Mutex{}
 	SaveCKErrorCodeKey = "SaveCKErrorCode"
 	exTime             = time.Hour * 720
 	localCacheExTime   = time.Hour * 168
@@ -159,7 +157,7 @@ func (e *BindingDataMapper) delStagingInRedis(datas *[]BindingData) {
 
 func (e *BindingDataMapper) getByCode(shotCode *string) (string, error) {
 	var queryList []BindingData
-	result := global.DB.Limit(1).Where(" shot_code = ?", shotCode).Order("create_time desc ").Find(&queryList)
+	result := global.DB.Limit(1).Where(" code = ?", shotCode).Order("create_time desc ").Select("message").Find(&queryList)
 	if result.Error != nil {
 		return "", result.Error
 	}
@@ -201,6 +199,7 @@ func (e *BindingDataMapper) cacheInRedis(shotCode *string, data *string) error {
 		return err
 	}
 	global.RedisClient.Set(ctx, e.md5(data), shotCode, exTime)
+	global.RedisClient.Set(ctx, *shotCode+"#MkS", "1", exTime)
 	return nil
 }
 
