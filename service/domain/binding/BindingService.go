@@ -15,9 +15,13 @@ var (
 type BindingService struct {
 }
 
+func init() {
+	bindingDataMapper.startLazySaveChConsumer()
+}
+
 func (e *BindingService) Binding(shotCode *string, data *string) (*string, *do.ShortCodeError) {
 	var ctx = context.Background()
-	oldCode, err := global.RedisClient.Get(ctx, *data).Result()
+	oldCode, err := global.RedisClient.Get(ctx, bindingDataMapper.md5(data)).Result()
 	if err == redis.Nil {
 		if err = bindingDataMapper.cacheAndSave(shotCode, data); err != nil {
 			return nil, errorutil.RedisAndCKError
@@ -28,7 +32,15 @@ func (e *BindingService) Binding(shotCode *string, data *string) (*string, *do.S
 }
 
 func (e *BindingService) Flush() {
-	bindingDataMapper.flushInLock()
+	bindingDataMapper.flushCK()
+}
+
+func (e *BindingService) DestroyAndFlush() {
+	global.LOG.Info("服务被销毁,准备持久化数据")
+	lazySaveWG.Wait()
+	bindingDataMapper.flushCK()
+	lazySaveWG.Wait()
+	bindingDataMapper.closeLazySaveChConsumer()
 }
 
 func (e *BindingService) GetByShotCode(shotCode *string) (*string, *do.ShortCodeError) {

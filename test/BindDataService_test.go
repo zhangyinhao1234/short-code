@@ -5,6 +5,7 @@ import (
 	"short-code/global"
 	"short-code/initialize"
 	"short-code/service/choreography"
+	"short-code/service/domain/binding"
 	"sync"
 	"testing"
 	"time"
@@ -23,6 +24,7 @@ func init() {
 func TestBind(t *testing.T) {
 	global.LOG.Info("start ........")
 	var bindDataService = choreography.BindDataService{}
+	var bindingService = binding.BindingService{}
 	runSize := 20
 	for i := 0; i < runSize; i++ {
 		id := uuid.New().String() + uuid.New().String() + uuid.New().String() + uuid.New().String()
@@ -32,13 +34,14 @@ func TestBind(t *testing.T) {
 		}
 
 	}
-	bindDataService.Flush()
+	bindingService.Flush()
 	global.LOG.Info("end ........")
 	//time.Sleep(time.Second * 5)
 }
 
 func TestBind_V2(t *testing.T) {
 	var bindDataService = choreography.BindDataService{}
+	var bindingService = binding.BindingService{}
 	runSize := 300
 	var wg = sync.WaitGroup{}
 	wg.Add(runSize)
@@ -55,7 +58,7 @@ func TestBind_V2(t *testing.T) {
 	}
 	wg.Wait()
 
-	bindDataService.Flush()
+	bindingService.Flush()
 
 	time.Sleep(time.Second * 5)
 

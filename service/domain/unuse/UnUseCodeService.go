@@ -6,9 +6,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"short-code/global"
 	"short-code/model/do"
-	"short-code/utils/errorutil"
 	"strconv"
-	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -20,74 +18,33 @@ const (
 )
 
 var (
-	loadMut = sync.Mutex{}
-	pollMut = sync.Mutex{}
-
 	unUseCodeMapper           = UnUseCodeMapper{}
 	currentSerialNumberMapper = CurrentSerialNumberMapper{}
 
 	exTime = time.Hour * 24
+	codeCh = make(chan string, 150000)
+
+	loadingCodeMark int64
+	size            int64
 )
 
 type UnUseCodeService struct {
-	currentNode     *ShotCodeNode
-	lastNode        *ShotCodeNode
-	size            int64
-	loadingCodeMark int64
-}
-
-type ShotCodeNode struct {
-	shotCode string
-	next     *ShotCodeNode
 }
 
 func (e *UnUseCodeService) Poll() (*string, *do.ShortCodeError) {
-	defer func() {
-		pollMut.Unlock()
-	}()
-	pollMut.Lock()
-	t1 := time.Now().UnixMilli()
-	for e.currentNode == nil {
-		if time.Now().UnixMilli()-t1 > PollTimeOut {
-			return nil, errorutil.CodeDepletedError
-		}
-		e.loadSwapLoadingCodeMark()
-	}
-	for e.currentNode.next == nil {
-		if time.Now().UnixMilli()-t1 > PollTimeOut {
-			return nil, errorutil.CodeDepletedError
-		}
-		e.loadSwapLoadingCodeMark()
-	}
-	shotCode := e.currentNode.shotCode
-	e.currentNode = e.currentNode.next
-	afterSize := atomic.AddInt64(&e.size, -1)
-
-	if afterSize < global.CONF.ShotCode.SafetyStock && atomic.CompareAndSwapInt64(&e.loadingCodeMark, 0, 1) {
-		//global.LOG.Info("达到安全库存，加载短码数据")
+	if atomic.LoadInt64(&size) < global.CONF.ShotCode.SafetyStock && atomic.CompareAndSwapInt64(&loadingCodeMark, 0, 1) {
 		go func() {
 			e.Load()
-			atomic.StoreInt64(&e.loadingCodeMark, 0)
+			atomic.StoreInt64(&loadingCodeMark, 0)
 		}()
 	}
-	return &shotCode, nil
-}
-
-func (e *UnUseCodeService) loadSwapLoadingCodeMark() {
-	if atomic.CompareAndSwapInt64(&e.loadingCodeMark, 0, 1) {
-		go func() {
-			e.Load()
-			atomic.StoreInt64(&e.loadingCodeMark, 0)
-		}()
-	}
+	str := <-codeCh
+	atomic.AddInt64(&size, -1)
+	return &str, nil
 }
 
 func (e *UnUseCodeService) Load() error {
-	defer func() {
-		loadMut.Unlock()
-	}()
-	loadMut.Lock()
-	if e.size > global.CONF.ShotCode.SafetyStock {
+	if atomic.LoadInt64(&size) > global.CONF.ShotCode.SafetyStock {
 		return nil
 	}
 	//global.LOG.Debug("准备加载数据，当前剩余短码 = ", e.size)
@@ -95,32 +52,15 @@ func (e *UnUseCodeService) Load() error {
 	if err != nil {
 		return err
 	}
-	codes, err := unUseCodeMapper.listShotCodeFromDB(number)
+	codes, err := unUseCodeMapper.listShortCodeFromDB(number)
 	if err != nil {
 		return err
 	}
-	var first_ *ShotCodeNode = nil
-	var move_ *ShotCodeNode = nil
 	for _, code := range *codes {
-		node := ShotCodeNode{shotCode: *e.parseNumber2Str(code.ShotCode), next: nil}
-		if first_ == nil {
-			first_ = &node
-		} else {
-			move_.next = &node
-		}
-		move_ = &node
+		c := e.parseNumber2Str(code.ShotCode)
+		codeCh <- *c
 	}
-	if e.currentNode == nil {
-		e.currentNode = first_
-	}
-	if e.lastNode == nil {
-		e.lastNode = move_
-	} else {
-		e.lastNode.next = first_
-		e.lastNode = move_
-	}
-	atomic.AddInt64(&e.size, int64(len(*codes)))
-	//global.LOG.Debug("加载数据完成，当前剩余短码 = ", e.size)
+	atomic.AddInt64(&size, int64(len(*codes)))
 	return nil
 }
 

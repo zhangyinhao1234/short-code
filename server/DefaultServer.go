@@ -12,7 +12,7 @@ import (
 	"short-code/global"
 	"short-code/initialize"
 	"short-code/middleware"
-	"short-code/service/choreography"
+	"short-code/service/domain/binding"
 	"strconv"
 	"time"
 )
@@ -82,6 +82,6 @@ func (e *DefaultServer) Run() {
 }
 
 func (e *DefaultServer) destroy() {
-	var bindDataService = choreography.BindDataService{}
-	bindDataService.Flush()
+	var bindingService = binding.BindingService{}
+	bindingService.DestroyAndFlush()
 }

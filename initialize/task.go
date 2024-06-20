@@ -12,5 +12,5 @@ func Tasks() {
 }
 
 func LoadCacheInLocal() {
-	startUpLoadCache.LoadBindCacheInLocal()
+	startUpLoadCache.LoadCacheInLocal()
 }

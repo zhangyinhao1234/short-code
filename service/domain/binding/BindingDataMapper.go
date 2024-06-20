@@ -2,7 +2,9 @@ package binding
 
 import (
 	"context"
+	"crypto/md5"
 	"errors"
+	"fmt"
 	"github.com/redis/go-redis/v9"
 	"short-code/global"
 	"short-code/utils/errorutil"
@@ -16,6 +18,11 @@ var (
 	SaveCKErrorCodeKey = "SaveCKErrorCode"
 	exTime             = time.Hour * 720
 	localCacheExTime   = time.Hour * 168
+
+	ckFault            = false
+	lazySaveChPool     []chan BindingData
+	lazySaveChPoolSize = 2
+	lazySaveWG         sync.WaitGroup
 )
 
 type BindingData struct {
@@ -44,45 +51,81 @@ func (e *BindingDataMapper) cacheAndSave(shotCode *string, data *string) error {
 	return nil
 }
 
-// 500TPS基本满足需求，chan遇到宕机可能会丢失更多的数据
 func (e *BindingDataMapper) lazySaveInCK(shotCode string, data string) error {
-	defer lazySaveMut.Unlock()
-	lazySaveMut.Lock()
+	if ckFault {
+		return errors.New("ClickHouse上次被标记为故障")
+	}
 	bindingData := BindingData{ShotCode: shotCode, Message: data, CreateTime: time.Now().UnixMilli()}
-	unSaveBindingData = append(unSaveBindingData, bindingData)
-	if len(unSaveBindingData) >= global.CONF.ShotCode.BatchFlushSize {
-		return e.flush()
-	}
+	ascii := int([]rune(shotCode[0:5])[0])
+	lazySaveCh := lazySaveChPool[ascii%lazySaveChPoolSize]
+	lazySaveWG.Add(1)
+	lazySaveCh <- bindingData
 	return nil
 }
 
-func (e *BindingDataMapper) flushInLock() {
-	defer lazySaveMut.Unlock()
-	lazySaveMut.Lock()
-	//因故障导致存储的数据量不会很大，分布式环境中多存储了几份问题不大
-	var stagingData []BindingData
-	for _, v := range *e.listStagingFromRedis() {
-		unSaveBindingData = append(unSaveBindingData, v)
-		stagingData = append(stagingData, v)
-	}
-	err := e.flush()
-	if err == nil {
-		e.delStagingInRedis(&stagingData)
+func (e *BindingDataMapper) startLazySaveChConsumer() {
+	for i := 0; i < lazySaveChPoolSize; i++ {
+		lazySaveCh := make(chan BindingData, 2000)
+		lazySaveChPool = append(lazySaveChPool, lazySaveCh)
+		e.lazySaveChConsumer(lazySaveCh)
 	}
 }
 
-func (e *BindingDataMapper) flush() error {
-	if len(unSaveBindingData) == 0 {
-		return nil
+func (e *BindingDataMapper) closeLazySaveChConsumer() {
+	for _, ch := range lazySaveChPool {
+		close(ch)
 	}
-	//global.LOG.Info("开始批量刷写数据，数组数量{2};", len(unSaveBindingData))
-	result := global.DB.Create(&unSaveBindingData)
-	if result.Error != nil {
-		e.stagingInRedis(unSaveBindingData)
-		return result.Error
+}
+
+func (e *BindingDataMapper) lazySaveChConsumer(lazySaveCh chan BindingData) {
+	go func() {
+		var datas []BindingData
+		for v := range lazySaveCh {
+			if "#FlushCKNow#" == v.ShotCode {
+				//global.LOG.Info("接受数据持久化到CK指令")
+				//因故障导致存储的数据量不会很大，分布式环境中多存储了几份问题不大
+				var stagingData []BindingData
+				for _, v := range *e.listStagingFromRedis() {
+					datas = append(datas, v)
+					stagingData = append(stagingData, v)
+				}
+				result := global.DB.Create(&datas)
+				if result.Error == nil {
+					e.delStagingInRedis(&stagingData)
+					datas = datas[0:0]
+				}
+			} else {
+				datas = append(datas, v)
+			}
+
+			lazySaveWG.Done()
+			if len(datas) >= global.CONF.ShotCode.BatchFlushSize {
+				global.LOG.Info("数据持久化到CK size = ", len(datas))
+				var replica []BindingData
+				for _, v := range datas {
+					replica = append(replica, v)
+				}
+				datas = datas[0:0]
+				go func() {
+					result := global.DB.Create(&replica)
+					if result.Error != nil {
+						e.stagingInRedis(replica)
+						ckFault = true
+					} else {
+						ckFault = false
+					}
+				}()
+			}
+		}
+	}()
+}
+
+func (e *BindingDataMapper) flushCK() {
+	lazySaveWG.Add(lazySaveChPoolSize)
+	for _, ch := range lazySaveChPool {
+		bindingData := BindingData{ShotCode: "#FlushCKNow#"}
+		ch <- bindingData
 	}
-	unSaveBindingData = []BindingData{}
-	return nil
 }
 
 func (e *BindingDataMapper) stagingInRedis(datas []BindingData) {
@@ -101,7 +144,7 @@ func (e *BindingDataMapper) stagingInRedis(datas []BindingData) {
 func (e *BindingDataMapper) listStagingFromRedis() *[]BindingData {
 	var ctx = context.Background()
 	m, _ := global.RedisClient.HGetAll(ctx, SaveCKErrorCodeKey).Result()
-	datas := []BindingData{}
+	var datas []BindingData
 	for k, v := range m {
 		bindingData := BindingData{ShotCode: k, Message: v, CreateTime: time.Now().UnixMilli()}
 		datas = append(datas, bindingData)
@@ -151,7 +194,6 @@ func (e *BindingDataMapper) listLtCreateTime(createTime int64, limit int) (*[]Bi
 }
 
 func (e *BindingDataMapper) cacheInLocal(shotCode *string, data *string) {
-_:
 	global.LocalCache.SetWithExpire(*shotCode, data, localCacheExTime)
 }
 
@@ -161,9 +203,14 @@ func (e *BindingDataMapper) cacheInRedis(shotCode *string, data *string) error {
 	if err != nil {
 		return err
 	}
-	global.RedisClient.Set(ctx, *data, shotCode, exTime)
-	global.RedisClient.Set(ctx, *shotCode+"#MkS", "1", exTime)
+	global.RedisClient.Set(ctx, e.md5(data), shotCode, exTime)
 	return nil
+}
+
+func (e *BindingDataMapper) md5(data *string) string {
+	re := md5.Sum([]byte(*data))
+	md5str := fmt.Sprintf("%x", re)
+	return md5str
 }
 
 func (e *BindingDataMapper) existsMarkBind(shotCode *string) (bool, error) {

@@ -21,9 +21,9 @@ type UnUseCodeMapper struct {
 	SerialNumber int64  `gorm:"column:serial_number"`
 }
 
-func (e *UnUseCodeMapper) listShotCodeFromDB(SerialNumber int64) (*[]UnUseCode, error) {
+func (e *UnUseCodeMapper) listShortCodeFromDB(SerialNumber int64) (*[]UnUseCode, error) {
 	var queryList []UnUseCode
-	result := global.DB.Limit(int(global.CONF.ShotCode.CacheSize)).Where(" serial_number >= ?", SerialNumber).Order("serial_number asc ").Find(&queryList)
+	result := global.DB.Limit(int(global.CONF.ShotCode.CacheSize)).Where(" serial_number >= ?", SerialNumber).Order("serial_number asc ").Select("shot_code").Find(&queryList)
 	if result.Error != nil {
 		return nil, result.Error
 	}

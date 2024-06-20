@@ -47,7 +47,7 @@
 * 应用服务：8C16G-Apple@M1 * 1
 * 压力肉鸡：4C16G-i7@2.8GHz * 1
 * 使用jmeter压测：服务器和肉鸡均不在一个网段,影响QPS的主要是网络,如果需要达到高性能需要保证网络
-* 数据绑定短码压测 线程数:256 循环次数:200 ![绑定数据压测.jpg](doc%2Fimages%2F%E7%BB%91%E5%AE%9A%E6%95%B0%E6%8D%AE%E5%8E%8B%E6%B5%8B.jpg)
+* 数据绑定短码压测 线程数:200 循环次数:100 ![绑定数据.jpg](doc%2Fimages%2F%E7%BB%91%E5%AE%9A%E6%95%B0%E6%8D%AE.jpg)
 * 通过短码获取绑定的数据 线程数:256 循环次数:250 60%本地缓存命中 ![60%命中本地缓存.jpg](doc%2Fimages%2F60%25%E5%91%BD%E4%B8%AD%E6%9C%AC%E5%9C%B0%E7%BC%93%E5%AD%98.jpg)
 * 通过短码获取绑定的数据 线程数:256 循环次数:250 60%Redis缓存命中 ![60%命中Redis缓存.jpg](doc%2Fimages%2F60%25%E5%91%BD%E4%B8%ADRedis%E7%BC%93%E5%AD%98.jpg)
 * 通过短码获取绑定的数据 线程数:256 循环次数:250 70%本地缓存命中 ![70%命中本地缓存.jpg](doc%2Fimages%2F70%25%E5%91%BD%E4%B8%AD%E6%9C%AC%E5%9C%B0%E7%BC%93%E5%AD%98.jpg)
@@ -56,11 +56,16 @@
 * 通过短码获取绑定的数据 线程数:256 循环次数:250 80%Redis缓存命中 ![80%命中Redis缓存.jpg](doc%2Fimages%2F80%25%E5%91%BD%E4%B8%ADRedis%E7%BC%93%E5%AD%98.jpg)
 * 通过短码获取绑定的数据 线程数:256 循环次数:250 90%本地缓存命中 ![90%命中本地缓存.jpg](doc%2Fimages%2F90%25%E5%91%BD%E4%B8%AD%E6%9C%AC%E5%9C%B0%E7%BC%93%E5%AD%98.jpg)
 * 通过短码获取绑定的数据 线程数:256 循环次数:250 90%Redis缓存命中 ![90%命中Redis缓存.jpg](doc%2Fimages%2F90%25%E5%91%BD%E4%B8%ADRedis%E7%BC%93%E5%AD%98.jpg)
+* 通过短码获取绑定的数据 线程数:512 循环次数:500 100%本地缓存命中 ![100%命中本地缓存.jpg](doc%2Fimages%2F100%25%E5%91%BD%E4%B8%AD%E6%9C%AC%E5%9C%B0%E7%BC%93%E5%AD%98.jpg)
+* 通过短码获取绑定的数据 线程数:512 循环次数:500 100%Redis缓存命中 ![100%命中Redis缓存.jpg](doc%2Fimages%2F100%25%E5%91%BD%E4%B8%ADRedis%E7%BC%93%E5%AD%98.jpg)
 * ClickHouse4个节点压测期间负载情况![CK1CPU使用率.jpg](doc%2Fimages%2FCK1CPU%E4%BD%BF%E7%94%A8%E7%8E%87.jpg)
 ![CK2CPU使用率.jpg](doc%2Fimages%2FCK2CPU%E4%BD%BF%E7%94%A8%E7%8E%87.jpg)
 ![CK3CPU使用率.jpg](doc%2Fimages%2FCK3CPU%E4%BD%BF%E7%94%A8%E7%8E%87.jpg)
 ![CK4CPU使用率.jpg](doc%2Fimages%2FCK4CPU%E4%BD%BF%E7%94%A8%E7%8E%87.jpg)
 * 应用服务压测期间CPU负载40%（CPU 总800%）
+* 结论
+  * 可能受网络影响，100%命中Redis吞吐量明显偏低
+  * 如果不能100%命中本地缓存，本地缓存对提升吞吐量的效果较低
 ## 限制
 * 200亿个短码，2年的有效期；平均每天绑定不得超过2730万个，平均每秒的绑定不得超过317个；超过限制建议预警
 * 通过短码获取绑定的数据 建议单台QPS控制在3000以内，
