@@ -75,41 +75,50 @@ func (e *BindingDataMapper) closeLazySaveChConsumer() {
 func (e *BindingDataMapper) lazySaveChConsumer(lazySaveCh chan BindingData) {
 	go func() {
 		var datas []BindingData
-		for v := range lazySaveCh {
-			if "#FlushCKNow#" == v.Code {
-				//global.LOG.Info("接受数据持久化到CK指令")
-				//因故障导致存储的数据量不会很大，分布式环境中多存储了几份问题不大
-				var stagingData []BindingData
-				for _, v := range *e.listStagingFromRedis() {
-					datas = append(datas, v)
-					stagingData = append(stagingData, v)
-				}
-				result := global.DB.Create(&datas)
-				if result.Error == nil {
-					e.delStagingInRedis(&stagingData)
+		var datasSaveInCK = func() {
+			global.LOG.Info("数据持久化到CK.... ")
+			result := global.DB.Create(&datas)
+			if result.Error != nil {
+				err := e.stagingInRedis(datas)
+				if err == nil {
 					datas = datas[0:0]
 				}
+				ckFault = true
+			} else {
+				ckFault = false
+				datas = datas[0:0]
+			}
+		}
+
+		var stagingDataSaveInCK = func() {
+			//因故障导致存储的数据量不会很大，分布式环境中多存储了几份问题不大
+			stagingData := e.listStagingFromRedis()
+			if len(*stagingData) > 0 {
+				result := global.DB.Create(&stagingData)
+				if result.Error == nil {
+					e.delStagingInRedis(stagingData)
+					ckFault = false
+				} else {
+					global.LOG.Error("ClickHouse故障,暂存数据稍后处理")
+					ckFault = true
+				}
+			}
+		}
+
+		for v := range lazySaveCh {
+			if "#FlushCKNow#" == v.Code {
+				global.LOG.Info("接受数据持久化到CK指令")
+				if len(datas) > 0 {
+					datasSaveInCK()
+				}
+				go stagingDataSaveInCK()
 			} else {
 				datas = append(datas, v)
 			}
-
 			lazySaveWG.Done()
+
 			if len(datas) >= global.CONF.ShortCode.BatchFlushSize {
-				global.LOG.Info("数据持久化到CK size = ", len(datas))
-				var replica []BindingData
-				for _, v := range datas {
-					replica = append(replica, v)
-				}
-				datas = datas[0:0]
-				go func() {
-					result := global.DB.Create(&replica)
-					if result.Error != nil {
-						e.stagingInRedis(replica)
-						ckFault = true
-					} else {
-						ckFault = false
-					}
-				}()
+				datasSaveInCK()
 			}
 		}
 	}()
@@ -123,17 +132,21 @@ func (e *BindingDataMapper) flushCK() {
 	}
 }
 
-func (e *BindingDataMapper) stagingInRedis(datas []BindingData) {
+func (e *BindingDataMapper) stagingInRedis(datas []BindingData) error {
 	//global.LOG.Info("数据暂存Redis size = ", len(datas))
 	if len(datas) == 0 {
-		return
+		return nil
 	}
 	var ctx = context.Background()
 	nm := map[string]string{}
 	for _, v := range datas {
 		nm[v.Code] = v.Message
 	}
-	global.RedisClient.HSet(ctx, SaveCKErrorCodeKey, nm)
+	_, err := global.RedisClient.HSet(ctx, SaveCKErrorCodeKey, nm).Result()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (e *BindingDataMapper) listStagingFromRedis() *[]BindingData {
@@ -198,8 +211,10 @@ func (e *BindingDataMapper) cacheInRedis(shotCode *string, data *string) error {
 	if err != nil {
 		return err
 	}
-	global.RedisClient.Set(ctx, e.md5(data), shotCode, exTime)
-	global.RedisClient.Set(ctx, *shotCode+"#MkS", "1", exTime)
+	go func() {
+		global.RedisClient.Set(ctx, e.md5(data), shotCode, exTime)
+		global.RedisClient.Set(ctx, *shotCode+"#MkS", "1", exTime)
+	}()
 	return nil
 }
 
